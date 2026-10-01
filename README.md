@@ -1,32 +1,96 @@
-# React + TypeScript + Vite
+# لیست کارها
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+یک برنامه مدیریت کارهای روزانه، فارسی و راست‌به‌چپ، ساخته‌شده با **Effect**، **Zod** و **shadcn/ui**.
 
-Currently, two official plugins are available:
+یک اپلیکیشن todo فارسی با رابط راست‌به‌چپ (RTL)، که لایه داده آن با Effect نوشته شده و اعتبارسنجی ورودی‌ها با Zod انجام می‌شود. رابط کاربری روی کامپوننت‌های shadcn/ui ساخته شده و تقویم آن کاملاً شمسی است.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## قابلیت‌ها
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- افزودن، ویرایش درجا، انجام‌شدن و حذف کارها
+- حذف با امکان **بازگردانی** (toast)
+- فیلتر بر اساس همه / فعال / انجام شده
+- جستجو در عنوان کارها
+- مرتب‌سازی بر اساس جدیدترین، قدیمی‌ترین، الفبایی و اولویت
+- **اولویت** (کم / متوسط / زیاد)
+- **موعد** با تقویم کاملاً شمسی
+- انتخاب همه به عنوان انجام‌شده یا فعال
+- نمایش زمان نسبی (۳ دقیقه پیش)
+- پیام خطای فارسی، هم‌راستا با محتوای ورودی
+- میان‌برهای صفحه‌کلید: `/` برای رفتن به کادر ورود، `Escape` برای خروج
 
-## Expanding the Oxlint configuration
+---
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## اجرا
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+bun install
+bun run dev      # اجرا در حالت توسعه (پورت ۵۰۰۰)
+bun run build    # بررسی تایپ‌ها و ساخت نسخه تولید
+bun run preview  # پیش‌نمایش نسخه ساخته‌شده
+bun run lint     # بررسی کد با oxlint
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+---
+
+## معماری
+
+```
+src/
+├── domain/
+│   └── Todo.ts             # مدل دامنه با Zod (عنوان، اولویت، موعد، فیلتر، مرتب‌سازی)
+├── services/
+│   └── TodoService.ts      # سرویس Effect: تمام عملیات روی کارها + ذخیره‌سازی
+├── hooks/
+│   └── useTodos.ts         # اتصال سرویس Effect به React از طریق ManagedRuntime
+├── components/
+│   ├── JalaliCalendar.tsx  # تقویم شمسی (ساخته‌شده با jalaali-js)
+│   ├── TodoItem.tsx        # هر ردیف از لیست
+│   ├── Toolbar.tsx         # جستجو، مرتب‌سازی و انتخاب همه
+│   └── ui/                 # کامپوننت‌های shadcn/ui
+├── utils/
+│   └── format.ts           # اعداد و تاریخ فارسی
+└── index.css               # توکن‌های رنگ و فونت
+```
+
+### لایه Effect
+
+منطق کار در یک سرویس Effect متمرکز شده است. خطاها به صورت نوع‌های مشخص (`TodoError` و `StorageError`) مدل می‌شوند، بنابراین امضای هر تابع دقیقاً مشخص می‌کند چه خطاهایی ممکن است رخ دهد:
+
+```ts
+add: (title: string) => Effect.Effect<Todo, Storage | TodoError>
+```
+
+اتصال سرویس به React تنها یک بار و از طریق `ManagedRuntime` انجام می‌شود، نه برای هر فراخوانی.
+
+### اعتبارسنجی با Zod
+
+عنوان کارها با Zod اعتبارسنجی می‌شود و پیام خطا مستقیماً از همان اسکیما به رابط کاربری می‌رسد:
+
+```ts
+export const TodoTitle = z
+  .string()
+  .trim()
+  .min(1, { error: "عنوان کار نمی‌تواند خالی باشد." })
+```
+
+فیلدهای جدید (اولویت و موعد) مقدار پیش‌فرض دارند، بنابراین کارهایی که با نسخه‌های قبلی ذخیره شده‌اند همچنان قابل خواندن هستند و لیست پاک نمی‌شود.
+
+### تقویم شمسی
+
+`react-day-picker` فقط نام ماه‌ها را ترجمه می‌کند و در پس‌زمینه همچنان تقویم میلادی را نگه می‌دارد؛ به همین دلیل کنار برچسب‌های فارسی، ماه و سال میلادی نمایش داده می‌شد. به همین دلیل تقویم به صورت یک ماه شمسی واقعی با `jalaali-js` پیاده‌سازی شده است: نام ماه‌های فارسی، سال و شماره روزهای شمسی، هفته‌ای که از شنبه شروع می‌شود و نمایش ۳۱ روز برای اسفند در سال کبیسه.
+
+> تبدیل تاریخ فقط در لایه رابط کاربری انجام می‌شود و مقدار ذخیره‌شده همچنان کلید `YYYY-MM-DD` میلادی است.
+
+---
+
+## فونت
+
+فونت **وزیرمتن** به صورت محلی در `src/font` نگهداری می‌شود و **Inter** به عنوان فونت لاتین پشتیبان استفاده می‌شود. از آن‌جا که اپلیکیشن فارسی است، فونت از CDN گرفته نمی‌شود؛ چون Vazirmatn به صورت پیش‌فرض روی لینوکس و ویندوز نصب نیست و متن بدون آن ناخواسته به فونت دیگری تغییر می‌کند.
+
+---
+
+## نکته‌ای درباره فاصله کلمات
+
+در این پروژه به جای نیم‌فاصله (ZWNJ)، از فاصله معمولی استفاده شده است؛ برای مثال «انجام شده» به جای «انجام‌شده».
